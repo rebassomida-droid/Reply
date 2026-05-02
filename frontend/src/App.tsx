@@ -56,9 +56,11 @@ function AppInner() {
           try {
             const c = JSON.parse(storedCompany) as Company;
             setCompany(c);
-            // Ricarica la lista companies aggiornata
-            api.get('/auth/companies').then((r) => setCompanies(r.data)).catch(() => {});
-            setAuthState('ready');
+            // Ricarica la lista companies prima di passare a ready
+            api.get('/auth/companies')
+              .then((r) => setCompanies(r.data))
+              .catch(() => {})
+              .finally(() => setAuthState('ready'));
           } catch {
             setAuthState('no-company');
           }
