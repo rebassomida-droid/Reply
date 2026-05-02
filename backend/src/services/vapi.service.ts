@@ -172,6 +172,31 @@ export async function updateAssistant(assistantId: string, config: AgentConfig, 
   });
 }
 
+/** Lista numeri di telefono acquistati sull'account Vapi */
+export async function listPhoneNumbers(): Promise<{ id: string; number: string; name?: string; assistantId?: string }[]> {
+  try {
+    const res = await axios.get(`${VAPI_BASE}/phone-number`, { headers: getHeaders() });
+    const data = Array.isArray(res.data) ? res.data : (res.data?.results ?? []);
+    return data.map((p: { id: string; number?: string; e164?: string; name?: string; assistantId?: string }) => ({
+      id: p.id,
+      number: p.number ?? p.e164 ?? p.id,
+      name: p.name,
+      assistantId: p.assistantId,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/** Collega un numero di telefono Vapi a un assistente */
+export async function linkPhoneNumber(phoneNumberId: string, assistantId: string): Promise<void> {
+  await axios.patch(
+    `${VAPI_BASE}/phone-number/${phoneNumberId}`,
+    { assistantId },
+    { headers: getHeaders() },
+  );
+}
+
 export async function listVoices(): Promise<{ id: string; name: string; provider: string }[]> {
   try {
     const res = await axios.get(`${VAPI_BASE}/voice`, { headers: getHeaders() });

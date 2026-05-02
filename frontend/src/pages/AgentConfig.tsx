@@ -3,6 +3,7 @@ import {
   Bot, Save, RefreshCw, CheckCircle, AlertCircle,
   Plus, Trash2, Phone, User, ToggleLeft, ToggleRight,
   Pencil, X, Check, Briefcase, BookOpen, Upload, Loader2,
+  Link, Copy, ExternalLink, Wifi, WifiOff,
 } from 'lucide-react';
 import api from '../lib/api';
 import DocumentCard from '../components/DocumentCard';
@@ -19,6 +20,7 @@ interface AgentConfig {
   first_message: string;
   end_call_message: string;
   vapi_assistant_id?: string;
+  vapi_phone_number_id?: string;
   // Impostazioni voce avanzate
   voice_speed: number;
   voice_stability: number;
@@ -26,6 +28,13 @@ interface AgentConfig {
   voice_style: number;
   voice_style_degree: number;
   voice_use_speaker_boost: boolean;
+}
+
+interface VapiPhoneNumber {
+  id: string;
+  number: string;
+  name?: string;
+  assistantId?: string;
 }
 
 interface Operator {
@@ -213,6 +222,7 @@ export default function AgentConfig() {
     voice_id: 'it-IT-ElsaNeural',
     first_message: 'Buongiorno, sono Giulia dello Studio Housetag. Come posso aiutarla?',
     end_call_message: 'Grazie per aver contattato lo Studio Housetag. Buona giornata!',
+    vapi_phone_number_id: '',
     voice_speed: 1.0,
     voice_stability: 0.5,
     voice_similarity_boost: 0.75,
@@ -226,6 +236,7 @@ export default function AgentConfig() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState<Operator>(EMPTY_OP);
   const [voices, setVoices] = useState<Voice[]>([]);
+  const [phoneNumbers, setPhoneNumbers] = useState<VapiPhoneNumber[]>([]);
   const [saving, setSaving] = useState(false);
   const [syncing, setSyncing] = useState(false);
 
@@ -247,6 +258,7 @@ export default function AgentConfig() {
 
   // ── Load ──
   useEffect(() => {
+    api.get('/vapi/phone-numbers').then((r) => setPhoneNumbers(r.data)).catch(() => {});
     api.get('/agent').then((r) => {
       const d = r.data;
       // PostgreSQL NUMERIC columns arrive as strings — parse them
@@ -297,7 +309,13 @@ export default function AgentConfig() {
       await api.put('/agent', config);
       const res = await api.post('/agent/sync');
       const opCount = res.data.operators_synced ?? 0;
-      showToast('success', `Sincronizzato su Vapi — ${opCount} operator${opCount === 1 ? 'e' : 'i'}`);
+      const linkedPhone = res.data.vapi_phone_number_id;
+      // Aggiorna l'assistant ID nella UI dopo la creazione
+      if (res.data.vapi_assistant_id) {
+        setConfig((prev) => ({ ...prev, vapi_assistant_id: res.data.vapi_assistant_id }));
+      }
+      const phoneMsg = linkedPhone ? ' · numero collegato' : '';
+      showToast('success', `Sincronizzato su Vapi — ${opCount} operator${opCount === 1 ? 'e' : 'i'}${phoneMsg}`);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } }).response?.data?.error || 'Errore';
       showToast('error', msg);
@@ -508,8 +526,8 @@ export default function AgentConfig() {
           </div>
         </div>
         {config.vapi_assistant_id && (
-          <span className="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded">
-            Vapi: {config.vapi_assistant_id.substring(0, 8)}…
+          <span className="hidden sm:flex items-center gap-1 text-xs bg-green-50 text-green-700 px-2 py-1 rounded-full font-medium">
+            <Wifi size={11} /> Vapi connesso
           </span>
         )}
       </div>
@@ -540,6 +558,90 @@ export default function AgentConfig() {
       {/* ── TAB: Configurazione ── */}
       {tab === 'agent' && (
         <form onSubmit={handleSave} className="space-y-5">
+
+          {/* ── Connessione Vapi ── */}
+          <div className="card p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-semibold text-gray-700">Connessione Vapi</h2>
+                {config.vapi_assistant_id
+                  ? <span className="flex items-center gap-1 text-xs bg-green-50 text-green-700 px-2 py-0.5 rounded-full font-medium"><Wifi size={11} /> Connesso</span>
+                  : <span className="flex items-center gap-1 text-xs bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full font-medium"><WifiOff size={11} /> Non configurato</span>
+                }
+              </div>
+              <a href="https://dashboard.vapi.ai" target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-1 text-xs text-gray-400 hover:text-brand-blue transition-colors">
+                <ExternalLink size={12} /> Dashboard Vapi
+              </a>
+            </div>
+
+            {/* Assistant ID */}
+            <div>
+              <label className="label">ID Assistente Vapi</label>
+              {config.vapi_assistant_id ? (
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 input bg-gray-50 text-gray-600 font-mono text-xs flex items-center gap-2 cursor-default select-all">
+                    <Link size={12} className="text-gray-400 flex-shrink-0" />
+                    {config.vapi_assistant_id}
+                  </div>
+                  <button type="button" title="Copia ID"
+                    onClick={() => { navigator.clipboard.writeText(config.vapi_assistant_id!); showToast('success', 'ID copiato'); }}
+                    className="p-2 text-gray-400 hover:text-brand-blue hover:bg-blue-50 rounded-lg transition-colors">
+                    <Copy size={15} />
+                  </button>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-400 bg-gray-50 rounded-lg px-3 py-2.5">
+                  Nessun assistente creato. Clicca <strong>Salva e sincronizza su Vapi</strong> per crearne uno automaticamente.
+                </p>
+              )}
+            </div>
+
+            {/* Phone Number */}
+            <div>
+              <label className="label">Numero di telefono Vapi
+                <span className="ml-1 font-normal text-gray-400">(opzionale — assegna un numero a questo agente)</span>
+              </label>
+              {phoneNumbers.length > 0 ? (
+                <select className="input" value={config.vapi_phone_number_id || ''}
+                  onChange={(e) => setConfig((p) => ({ ...p, vapi_phone_number_id: e.target.value }))}>
+                  <option value="">— Nessun numero selezionato —</option>
+                  {phoneNumbers.map((pn) => (
+                    <option key={pn.id} value={pn.id}>
+                      {pn.number}{pn.name ? ` (${pn.name})` : ''}{pn.assistantId && pn.assistantId !== config.vapi_assistant_id ? ' ⚠ usato da altro agente' : ''}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <input className="input flex-1 font-mono text-sm" placeholder="es. phone_abc123…"
+                    value={config.vapi_phone_number_id || ''}
+                    onChange={(e) => setConfig((p) => ({ ...p, vapi_phone_number_id: e.target.value }))} />
+                </div>
+              )}
+              {config.vapi_phone_number_id && (
+                <p className="text-xs text-gray-400 mt-1">
+                  Il numero verrà collegato all'assistente di questa azienda al prossimo salvataggio su Vapi.
+                </p>
+              )}
+            </div>
+
+            {/* Webhook URL */}
+            <div>
+              <label className="label">URL Webhook (configurato automaticamente su Vapi)</label>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 input bg-gray-50 text-gray-500 font-mono text-xs cursor-default">
+                  {`${import.meta.env.VITE_API_URL?.replace('/api', '') || 'https://reply-backend.vercel.app'}/api/calls/webhook`}
+                </div>
+                <button type="button" title="Copia URL"
+                  onClick={() => { navigator.clipboard.writeText(`${import.meta.env.VITE_API_URL?.replace('/api', '') || 'https://reply-backend.vercel.app'}/api/calls/webhook`); showToast('success', 'URL copiato'); }}
+                  className="p-2 text-gray-400 hover:text-brand-blue hover:bg-blue-50 rounded-lg transition-colors">
+                  <Copy size={15} />
+                </button>
+              </div>
+            </div>
+          </div>
+
           {/* Identità */}
           <div className="card p-5 space-y-4">
             <h2 className="text-sm font-semibold text-gray-700">Identità agente</h2>

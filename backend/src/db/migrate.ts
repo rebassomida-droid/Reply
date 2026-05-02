@@ -38,6 +38,11 @@ export async function runMigrations() {
     ).catch(() => {});
   }
 
+  // 6b. Numero di telefono Vapi per company
+  await pool.query(
+    `ALTER TABLE agent_config ADD COLUMN IF NOT EXISTS vapi_phone_number_id VARCHAR(100)`
+  ).catch(() => {});
+
   // 6. Impostazioni voce avanzate su agent_config
   const voiceCols = [
     `ALTER TABLE agent_config ADD COLUMN IF NOT EXISTS voice_speed NUMERIC(4,2) DEFAULT 1.0`,
