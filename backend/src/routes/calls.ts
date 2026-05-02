@@ -33,7 +33,7 @@ router.post('/webhook', async (req: Request, res: Response): Promise<void> => {
     await pool.query(
       `INSERT INTO call_logs (vapi_call_id, caller_number, started_at, outcome, company_id)
        VALUES ($1,$2,NOW(),'answered',$3) ON CONFLICT (vapi_call_id) DO NOTHING`,
-      [call.id, call.customer?.number || 'Sconosciuto', companyId]
+      [call.id, (call.customer as { number?: string })?.number || 'Sconosciuto', companyId]
     ).catch(() => {});
   }
 

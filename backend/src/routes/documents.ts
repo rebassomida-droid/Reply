@@ -66,7 +66,7 @@ router.post('/', upload.single('file'), async (req: AuthRequest, res: Response):
     const text = await extractText(req.file.path, fileType);
     await pool.query('UPDATE documents SET content=$1 WHERE id=$2', [text, docId]);
 
-    const chunkCount = await indexDocument(docId, text);
+    const chunkCount = await indexDocument(docId as number, text);
     const doc = await pool.query('SELECT * FROM documents WHERE id=$1', [docId]);
     res.json({ ...doc.rows[0], chunkCount });
   } catch (err: unknown) {

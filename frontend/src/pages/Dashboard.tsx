@@ -131,7 +131,7 @@ export default function Dashboard() {
             {[
               { label: 'Pannello di controllo', status: 'Operativo' },
               { label: 'Knowledge Base RAG', status: 'Attivo' },
-              { label: 'Agente vocale Vapi', status: process.env.NODE_ENV === 'development' ? 'Non configurato' : 'Attivo' },
+              { label: 'Agente vocale Vapi', status: import.meta.env.DEV ? 'Non configurato' : 'Attivo' },
               { label: 'Risponditore WhatsApp', status: 'In attesa config.' },
             ].map((item) => (
               <div key={item.label} className="flex items-center justify-between">
